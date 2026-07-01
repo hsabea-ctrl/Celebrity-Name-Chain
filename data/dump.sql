@@ -1,0 +1,13 @@
+-- Placeholder database dump.
+--
+-- REPLACE THIS FILE with a real dump of your database once you have tables and
+-- data. For example:
+--
+--   pg_dump "$DATABASE_URL" > data/dump.sql
+--
+-- Teammates recreate the database by restoring it:
+--
+--   psql "$DATABASE_URL" < data/dump.sql
+--
+-- Commit the updated dump so everyone starts from the same data, and so the
+-- final submission can be reviewed. (See the project spec, "Sharing the Database".)

@@ -1,0 +1,14 @@
+# dependencies
+/node_modules
+
+# build output
+/dist
+
+# generated Prisma client
+/src/generated
+
+# environment (never commit real secrets)
+.env
+
+# yarn install state (local cache)
+.yarn/install-state.gz

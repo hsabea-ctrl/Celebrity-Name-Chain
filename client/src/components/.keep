@@ -1,0 +1,5 @@
+This file exists only to keep the (otherwise empty) components/ directory in git,
+which does not track empty directories.
+
+Put your reusable UI components here (e.g. an answer form, the latest-name
+display). You can delete this file once you've added a real component.
