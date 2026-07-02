@@ -1,10 +1,3 @@
-// Prisma schema — define your database models here.
-//
-// The models are yours to design (see the project spec for the game rules).
-// After adding or changing a model, run:  yarn prisma:migrate
-// Prisma 7 note: the connection URL lives in `prisma.config.ts`, not here.
-// Docs: https://www.prisma.io/docs
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -14,4 +7,25 @@ datasource db {
   provider = "postgresql"
 }
 
-// TODO: add your models below (for example, a Game and its Answers).
+model rooms {
+  id        Int     @id @default(autoincrement())
+  room_code String  @unique
+  username  String
+  topic     String
+  turns     turns[]
+}
+
+model turns {
+  id           Int     @id @default(autoincrement())
+  room_id      Int
+  username     String
+  full_name    String
+  first_name   String
+  last_name    String
+  prev_turn_id Int?
+  turns        turns?  @relation("turnsToturns", fields: [prev_turn_id], references: [id], onUpdate: NoAction, map: "fk_prev_turn")
+  other_turns  turns[] @relation("turnsToturns")
+  rooms        rooms   @relation(fields: [room_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_turns_room")
+
+  @@unique([room_id, full_name], map: "room_turn_unique")
+}
