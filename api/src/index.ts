@@ -17,16 +17,49 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 // Middleware
-app.use(cors());
+app.use(
+	cors({
+		origin: [
+			"http://localhost:5173",
+			"https://unseemly-starch-isolating.ngrok-free.dev",
+		],
+	}),
+);
 app.use(express.json());
+
+// ngrok header bypass
+app.use((req, res, next) => {
+	res.setHeader("ngrok-skip-browser-warning", "true");
+	next();
+});
+
+// Starting celebrities array
+const STARTING_CELEBRITIES = [
+	"Elvis Presley",
+	"Marilyn Monroe",
+	"Michael Jackson",
+	"Audrey Hepburn",
+	"Frank Sinatra",
+	"Madonna Ciccone",
+	"Bruce Lee",
+	"Whitney Houston",
+	"James Dean",
+	"Tina Turner",
+];
+
+const getRandomCelebrity = () => {
+	return STARTING_CELEBRITIES[
+		Math.floor(Math.random() * STARTING_CELEBRITIES.length)
+	];
+};
 
 // Health check
 app.get("/health", (req, res) => {
 	res.json({ ok: true });
 });
 
-//generating rooms
-app.get("/rooms/generate", async (req, res) => {
+// GET /generate — generate a unique room code only
+app.get("/generate", async (req, res) => {
 	const generateCode = () =>
 		Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -53,16 +86,12 @@ app.get("/rooms/generate", async (req, res) => {
 	res.json({ roomCode: code });
 });
 
-// POST /games — create a new game
-app.post("/games", async (req, res) => {
-	const { roomCode, celebrity, username, topic } = req.body;
+// POST /games/:roomCode — create a game and assign a starting celebrity
+app.post("/games/:roomCode", async (req, res) => {
+	const { roomCode } = req.params;
+	const { username } = req.body;
 
-	if (!roomCode || !celebrity) {
-		return res
-			.status(400)
-			.json({ error: "roomCode and celebrity are required" });
-	}
-
+	const celebrity = getRandomCelebrity();
 	const nameParts = celebrity.trim().split(/\s+/);
 	const firstName = nameParts[0];
 	const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
@@ -72,11 +101,11 @@ app.post("/games", async (req, res) => {
 			data: {
 				room_code: roomCode,
 				username: username ?? "system",
-				topic: topic ?? "general",
+				topic: "celebrities",
 				turns: {
 					create: {
-						username: username ?? "system",
-						full_name: celebrity.trim(),
+						username: "system",
+						full_name: celebrity,
 						first_name: firstName,
 						last_name: lastName,
 						prev_turn_id: null,
@@ -85,10 +114,9 @@ app.post("/games", async (req, res) => {
 			},
 		});
 
-		// ✅ Response matches spec
 		res.status(201).json({
 			roomCode,
-			mostRecent: celebrity.trim(),
+			startingCelebrity: celebrity,
 		});
 	} catch (err: any) {
 		if (err.code === "P2002") {
@@ -99,36 +127,7 @@ app.post("/games", async (req, res) => {
 	}
 });
 
-// GET /games — list all games with mostRecent celebrity
-app.get("/games", async (req, res) => {
-	try {
-		const rooms = await prisma.rooms.findMany({
-			select: {
-				room_code: true,
-				turns: {
-					orderBy: { id: "desc" },
-					take: 1,
-					select: { full_name: true },
-				},
-			},
-		});
-
-		// ✅ Response matches spec
-		const games = rooms.map(
-			(room: { room_code: string; turns: { full_name: string }[] }) => ({
-				roomCode: room.room_code,
-				mostRecent: room.turns[0]?.full_name ?? null,
-			}),
-		);
-
-		res.json(games);
-	} catch (err) {
-		console.error(err);
-		res.status(500).json({ error: "Failed to list games" });
-	}
-});
-
-// GET /games/:roomCode — get most recent celebrity in a room
+// GET /games/:roomCode — view a room and see the most recent celebrity
 app.get("/games/:roomCode", async (req, res) => {
 	const { roomCode } = req.params;
 
@@ -147,7 +146,6 @@ app.get("/games/:roomCode", async (req, res) => {
 			return res.status(404).json({ error: "Game not found" });
 		}
 
-		// ✅ Response matches spec
 		res.json({
 			roomCode: room.room_code,
 			mostRecent: room.turns[0]?.full_name ?? null,
@@ -158,14 +156,13 @@ app.get("/games/:roomCode", async (req, res) => {
 	}
 });
 
-// POST /answers — submit an answer
-app.post("/answers", async (req, res) => {
-	const { roomCode, username, answer } = req.body;
+// POST /games/:roomCode/answers — submit an answer in a specific room
+app.post("/games/:roomCode/answers", async (req, res) => {
+	const { roomCode } = req.params;
+	const { username, answer } = req.body;
 
-	if (!roomCode || !username || !answer) {
-		return res
-			.status(400)
-			.json({ error: "roomCode, username, and answer are required" });
+	if (!username || !answer) {
+		return res.status(400).json({ error: "username and answer are required" });
 	}
 
 	const fullName = answer.trim();
@@ -220,7 +217,6 @@ app.post("/answers", async (req, res) => {
 			},
 		});
 
-		// ✅ Response matches spec
 		res.status(201).json({
 			accepted: true,
 			mostRecent: newTurn.full_name,
@@ -235,8 +231,6 @@ app.post("/answers", async (req, res) => {
 		res.status(500).json({ error: "Failed to submit answer" });
 	}
 });
-
-//just making sure this is updating.
 
 app.listen(PORT, () => {
 	console.log(`API listening on http://localhost:${PORT}`);
